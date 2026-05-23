@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a0a0f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="StockMix" />
+  <link rel="manifest" href="manifest.json" />
+  <title>StockMix</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg:         #0a0a0f;
+      --bg2:        #111118;
+      --bg3:        #1a1a24;
+      --border:     rgba(255,255,255,0.07);
+      --border2:    rgba(255,255,255,0.13);
+      --text:       #e8e8f0;
+      --muted:      #6b6b80;
+      --muted2:     #44445a;
+      --up:         #00e5a0;
+      --up-dim:     rgba(0,229,160,0.12);
+      --up-glow:    rgba(0,229,160,0.35);
+      --down:       #ff4d6d;
+      --down-dim:   rgba(255,77,109,0.12);
+      --down-glow:  rgba(255,77,109,0.35);
+      --flat:       #7b7b96;
+      --accent:     #7c6af5;
+      --accent-dim: rgba(124,106,245,0.15);
+      --font-mono:  'DM Mono', monospace;
+      --font-display: 'Syne', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      min-height: 100dvh;
+      overscroll-behavior: none;
+    }
+
+    /* ─── Grain overlay ─── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    #app {
+      position: relative; z-index: 1;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 0 0 100px;
+      min-height: 100dvh;
+    }
+
+    /* ─── Header ─── */
+    .header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(10,10,15,0.85);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 20px 14px;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .logo {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+      animation: pulse-logo 2s infinite;
+    }
+    @keyframes pulse-logo {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .header-meta {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* ─── Search Bar ─── */
+    .search-wrap {
+      position: relative;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .search-input {
+      flex: 1;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      letter-spacing: 0.03em;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-input::placeholder { color: var(--muted); }
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    .search-btn {
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      color: #fff;
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .search-btn:active { opacity: 0.8; transform: scale(0.97); }
+
+    /* ─── Section label ─── */
+    .section-label {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 24px 20px 10px;
+    }
+
+    /* ─── Portfolio Card ─── */
+    .card {
+      margin: 0 16px 14px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: border-color 0.3s;
+    }
+    .card.up   { border-color: rgba(0,229,160,0.2); }
+    .card.down { border-color: rgba(255,77,109,0.2); }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-name {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--text);
+      line-height: 1.2;
+    }
+    .card-desc {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 3px;
+      letter-spacing: 0.02em;
+    }
+
+    .card-delete {
+      background: none;
+      border: none;
+      color: var(--muted2);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 2px 6px;
+      line-height: 1;
+      transition: color 0.15s;
+    }
+    .card-delete:hover { color: var(--down); }
+
+    /* ─── Big number ─── */
+    .card-body {
+      padding: 18px 18px 14px;
+    }
+
+    .card-rate-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .card-rate {
+      font-family: var(--font-display);
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: -2px;
+      line-height: 1;
+      transition: color 0.4s;
+    }
+    .card-rate.up   { color: var(--up);   text-shadow: 0 0 30px var(--up-glow); }
+    .card-rate.down { color: var(--down); text-shadow: 0 0 30px var(--down-glow); }
+    .card-rate.flat { color: var(--flat); }
+
+    .card-rate-badge {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      letter-spacing: 0.05em;
+    }
+    .card-rate-badge.up   { background: var(--up-dim);   color: var(--up); }
+    .card-rate-badge.down { background: var(--down-dim); color: var(--down); }
+    .card-rate-badge.flat { background: rgba(123,123,150,0.15); color: var(--flat); }
+
+    /* ─── Flash animation on update ─── */
+    @keyframes flash-up {
+      0%   { background: var(--up-dim); }
+      100% { background: transparent; }
+    }
+    @keyframes flash-down {
+      0%   { background: var(--down-dim); }
+      100% { background: transparent; }
+    }
+    .flash-up   { animation: flash-up   0.6s ease-out; }
+    .flash-down { animation: flash-down 0.6s ease-out; }
+
+    /* ─── Holdings bar ─── */
+    .card-holdings {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .holding-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .holding-name {
+      font-size: 11px;
+      color: var(--muted);
+      width: 64px;
+      flex-shrink: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .holding-bar-wrap {
+      flex: 1;
+      height: 4px;
+      background: var(--bg3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .holding-bar {
+      height: 100%;
+      border-radius: 2px;
+      background: var(--accent);
+      transition: width 0.8s ease;
+    }
+
+    .holding-pct {
+      font-size: 11px;
+      width: 48px;
+      text-align: right;
+      flex-shrink: 0;
+      transition: color 0.4s;
+    }
+    .holding-pct.up   { color: var(--up); }
+    .holding-pct.down { color: var(--down); }
+    .holding-pct.flat { color: var(--flat); }
+
+    /* ─── Card footer ─── */
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 18px;
+      border-top: 1px solid var(--border);
+    }
+
+    .card-update-time {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+    .card-status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--up);
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .card-status-dot.error { background: var(--down); animation: none; }
+    .card-status-dot.loading { background: var(--flat); animation: none; }
+
+    /* ─── Status indicator ─── */
+    .global-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+    .status-live { color: var(--up); }
+
+    /* ─── Add portfolio form ─── */
+    .add-portfolio-panel {
+      margin: 0 16px 14px;
+      background: var(--bg2);
+      border: 1px dashed var(--border2);
+      border-radius: 16px;
+      padding: 18px;
+      display: none;
+    }
+    .add-portfolio-panel.visible { display: block; }
+
+    .panel-title {
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+    .panel-field {
+      margin-bottom: 10px;
+    }
+    .panel-label {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    .panel-input {
+      width: 100%;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .panel-input:focus { border-color: var(--accent); }
+
+    .panel-hint {
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
+
+    .panel-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-primary {
+      flex: 1;
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      padding: 10px;
+      color: #fff;
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-primary:active { opacity: 0.8; }
+    .btn-cancel {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    /* ─── Empty state ─── */
+    .empty {
+      text-align: center;
+      padding: 60px 40px;
+      color: var(--muted);
+    }
+    .empty-icon { font-size: 40px; margin-bottom: 14px; opacity: 0.4; }
+    .empty-text { font-size: 13px; line-height: 1.6; }
+
+    /* ─── Toast ─── */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      padding: 10px 20px;
+      font-size: 12px;
+      color: var(--text);
+      white-space: nowrap;
+      z-index: 999;
+      transition: transform 0.3s ease;
+      pointer-events: none;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ─── Scrollbar ─── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ─── Header ─── -->
+  <div class="header">
+    <div class="header-top">
+      <div class="logo">
+        <span class="logo-dot"></span>
+        StockMix
+      </div>
+      <div class="global-status" id="globalStatus">
+        <span class="status-live">●</span>
+        <span id="statusText">实时</span>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <input
+        class="search-input"
+        id="searchInput"
+        type="text"
+        placeholder="输入组合代码，回车或点击添加…"
+        autocomplete="off"
+        spellcheck="false"
+        onkeydown="if(event.key==='Enter') fetchAndAdd()"
+      />
+      <button class="search-btn" onclick="fetchAndAdd()">＋ 添加</button>
+    </div>
+  </div>
+
+  <!-- ─── Loading hint panel（后端拉取中） ─── -->
+  <div class="add-portfolio-panel" id="addPanel">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="logo-dot" style="flex-shrink:0;animation:pulse-logo 1s infinite;"></div>
+      <div style="font-size:13px;color:var(--muted);" id="addPanelMsg">正在从后端加载组合配方…</div>
+    </div>
+  </div>
+
+  <!-- ─── Portfolio list ─── -->
+  <div class="section-label">持仓组合</div>
+  <div id="portfolioList"></div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ╔══════════════════════════════════════════════╗
+// ║           StockMix  —  核心逻辑              ║
+// ╚══════════════════════════════════════════════╝
+
+// ─── Mock 示例组合（开箱即用） ───────────────────
+const MOCK_PORTFOLIOS = [
+  {
+    id: 'demo-1',
+    name: '白酒科技混合',
+    holdings: [
+      { stockCode: 'sh600519', stockName: '贵州茅台', weight: 0.0985 },
+      { stockCode: 'hk00700',  stockName: '腾讯控股', weight: 0.0941 },
+      { stockCode: 'sz000858', stockName: '五粮液',   weight: 0.0820 },
+    ]
+  },
+  {
+    id: 'demo-2',
+    name: '新能源核心',
+    holdings: [
+      { stockCode: 'sz300750', stockName: '宁德时代', weight: 0.15 },
+      { stockCode: 'sh601899', stockName: '紫金矿业', weight: 0.10 },
+      { stockCode: 'sz002594', stockName: '比亚迪',   weight: 0.12 },
+    ]
+  }
+];
+
+// ─── 状态 ────────────────────────────────────────
+let portfolios = JSON.parse(localStorage.getItem('sm_portfolios') || 'null') || MOCK_PORTFOLIOS;
+let priceCache = {};   // code → { percent, name }
+let pollTimer  = null;
+
+// ─── 代码格式转换 ──────────────────────────────
+// sh600519 → 0600519 | sz000858 → 1000858 | hk00700 → hk00700
+function toWyCode(code) {
+  if (code.startsWith('sh')) return '0' + code.slice(2);
+  if (code.startsWith('sz')) return '1' + code.slice(2);
+  return code; // hk 直接返回
+}
+
+// ─── 拉取行情（JSONP） ─────────────────────────
+function fetchQuotes(codes) {
+  return new Promise((resolve) => {
+    const wywCodes = codes.map(toWyCode).join(',');
+    const cbName   = '_sm_cb_' + Date.now();
+    const script   = document.createElement('script');
+    const timer    = setTimeout(() => {
+      cleanup();
+      resolve({});
+    }, 8000);
+
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[cbName] = function(data) {
+      cleanup();
+      // data 结构: { "0600519": { percent, name, ... }, ... }
+      const result = {};
+      // 网易接口直接返回对象，key 是转换后的代码
+      Object.entries(data || {}).forEach(([k, v]) => {
+        if (v && typeof v.percent !== 'undefined') {
+          result[k] = { percent: parseFloat(v.percent), name: v.name || k };
+        }
+      });
+      resolve(result);
+    };
+
+    // 网易财经 JSONP 接口，callback 参数名为 callback
+    script.src = `https://api.money.126.net/data/feed/${wywCodes},money.api?callback=${cbName}`;
+    script.onerror = () => { cleanup(); resolve({}); };
+    document.head.appendChild(script);
+  });
+}
+
+// ─── 归一化加权计算 ────────────────────────────
+function calcPortfolioRate(holdings) {
+  let weightedSum = 0;
+  let totalWeight = 0;
+  let filled      = 0;
+
+  holdings.forEach(h => {
+    const wyCode = toWyCode(h.stockCode);
+    const cached = priceCache[wyCode];
+    if (cached && typeof cached.percent === 'number') {
+      weightedSum += cached.percent * h.weight;
+      totalWeight += h.weight;
+      filled++;
+    }
+  });
+
+  if (totalWeight === 0) return null;
+  return {
+    rate:   weightedSum / totalWeight,
+    filled: filled,
+    total:  holdings.length
+  };
+}
+
+// ─── 轮询主流程 ────────────────────────────────
+async function pollAll() {
+  const allCodes = [];
+  portfolios.forEach(p => p.holdings.forEach(h => allCodes.push(h.stockCode)));
+  const unique = [...new Set(allCodes)];
+  if (!unique.length) return;
+
+  setStatus('loading');
+  const data = await fetchQuotes(unique);
+
+  // 合并缓存
+  Object.assign(priceCache, data);
+
+  if (Object.keys(data).length > 0) {
+    setStatus('live');
+  } else {
+    setStatus('error');
+  }
+
+  portfolios.forEach(p => renderCard(p));
+}
+
+// ─── 渲染卡片 ──────────────────────────────────
+function renderCard(portfolio) {
+  const el  = document.getElementById('card-' + portfolio.id);
+  if (!el) return;
+
+  const calc = calcPortfolioRate(portfolio.holdings);
+  const now  = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+
+  // Big number
+  const rateEl  = el.querySelector('.card-rate');
+  const badgeEl = el.querySelector('.card-rate-badge');
+  const bodyEl  = el.querySelector('.card-body');
+
+  if (!calc) {
+    rateEl.textContent   = '加载中…';
+    rateEl.className     = 'card-rate flat';
+    badgeEl.textContent  = '---';
+    badgeEl.className    = 'card-rate-badge flat';
+    el.className         = 'card';
+  } else {
+    const r     = calc.rate;
+    const sign  = r > 0 ? '+' : '';
+    const cls   = r > 0.001 ? 'up' : r < -0.001 ? 'down' : 'flat';
+    const prev  = parseFloat(rateEl.dataset.prev || '0');
+
+    rateEl.textContent   = sign + r.toFixed(2) + '%';
+    rateEl.className     = 'card-rate ' + cls;
+    rateEl.dataset.prev  = r;
+
+    badgeEl.textContent  = calc.filled + '/' + calc.total + ' 支';
+    badgeEl.className    = 'card-rate-badge ' + cls;
+
+    el.classList.remove('up', 'down');
+    el.classList.add(cls === 'flat' ? '' : cls);
+
+    // Flash effect
+    if (Math.abs(r - prev) > 0.001) {
+      bodyEl.classList.remove('flash-up', 'flash-down');
+      void bodyEl.offsetWidth; // reflow
+      bodyEl.classList.add(r > prev ? 'flash-up' : 'flash-down');
+    }
+  }
+
+  // Holdings rows
+  const maxW = Math.max(...portfolio.holdings.map(h => h.weight));
+  portfolio.holdings.forEach(h => {
+    const wyCode    = toWyCode(h.stockCode);
+    const rowEl     = el.querySelector(`.holding-pct[data-code="${wyCode}"]`);
+    const barEl     = el.querySelector(`.holding-bar[data-code="${wyCode}"]`);
+    if (!rowEl) return;
+
+    const cached = priceCache[wyCode];
+    if (cached && typeof cached.percent === 'number') {
+      const p   = cached.percent;
+      const cls = p > 0.001 ? 'up' : p < -0.001 ? 'down' : 'flat';
+      rowEl.textContent = (p > 0 ? '+' : '') + p.toFixed(2) + '%';
+      rowEl.className   = 'holding-pct ' + cls;
+    }
+    if (barEl) {
+      barEl.style.width = (h.weight / maxW * 100).toFixed(1) + '%';
+    }
+  });
+
+  // Timestamp
+  const timeEl = el.querySelector('.card-update-time');
+  if (timeEl) timeEl.textContent = '更新 ' + now;
+}
+
+// ─── 构建卡片 DOM ──────────────────────────────
+function buildCard(portfolio) {
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.id = 'card-' + portfolio.id;
+
+  const holdingsHTML = portfolio.holdings.map(h => {
+    const wyCode = toWyCode(h.stockCode);
+    return `
+      <div class="holding-row">
+        <div class="holding-name">${h.stockName}</div>
+        <div class="holding-bar-wrap">
+          <div class="holding-bar" data-code="${wyCode}" style="width:0%"></div>
+        </div>
+        <div class="holding-pct flat" data-code="${wyCode}">--.--%</div>
+      </div>`;
+  }).join('');
+
+  div.innerHTML = `
+    <div class="card-header">
+      <div>
+        <div class="card-name">${portfolio.name}</div>
+        <div class="card-desc">${portfolio.holdings.map(h=>h.stockName).join(' · ')}</div>
+      </div>
+      <button class="card-delete" onclick="deletePortfolio('${portfolio.id}')" title="删除">×</button>
+    </div>
+    <div class="card-body">
+      <div class="card-rate-row">
+        <div class="card-rate flat" data-prev="0">--.--%</div>
+        <div class="card-rate-badge flat">-- / -- 支</div>
+      </div>
+      <div class="card-holdings">${holdingsHTML}</div>
+    </div>
+    <div class="card-footer">
+      <div class="card-update-time">等待数据…</div>
+      <div class="card-status-dot loading"></div>
+    </div>
+  `;
+  return div;
+}
+
+// ─── 渲染列表 ──────────────────────────────────
+function renderList() {
+  const list = document.getElementById('portfolioList');
+  list.innerHTML = '';
+  if (!portfolios.length) {
+    list.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">📊</div>
+        <div class="empty-text">还没有组合<br>点击右上角「＋ 添加」创建</div>
+      </div>`;
+    return;
+  }
+  portfolios.forEach(p => list.appendChild(buildCard(p)));
+}
+
+// ─── 后端接口地址 ───────────────────────────────
+const API_BASE = 'http://localhost:8080/api/v1/portfolio';
+
+// ─── 从后端拉取组合配方并添加 ─────────────────────
+// 接口：GET /api/v1/portfolio/recipe?code=xxx
+// 期望后端返回结构：
+// {
+//   "name": "白酒科技混合",
+//   "holdings": [
+//     { "stockCode": "sh600519", "stockName": "贵州茅台", "weight": 0.0985 },
+//     ...
+//   ]
+// }
+async function fetchAndAdd() {
+  const input = document.getElementById('searchInput');
+  const code  = input.value.trim();
+  if (!code) { showToast('请输入组合代码'); return; }
+
+  // 检查是否已存在
+  if (portfolios.some(p => p.code === code)) {
+    showToast('该组合已添加');
+    return;
+  }
+
+  // 显示加载面板
+  const panel   = document.getElementById('addPanel');
+  const msgEl   = document.getElementById('addPanelMsg');
+  msgEl.textContent = `正在加载「${code}」的配方…`;
+  panel.classList.add('visible');
+
+  try {
+    const res = await fetch(`${API_BASE}/recipe?code=${encodeURIComponent(code)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      // 如后端需要鉴权 token，在此追加：
+      // headers: { 'Authorization': 'Bearer ' + getToken() },
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => res.statusText);
+      throw new Error(`HTTP ${res.status}：${errText}`);
+    }
+
+    const responseBody = await res.json(); // 最外层的标准统一响应体
+
+    // 🌟 核心修复：先取出后端 ApiResponse 里面的 data 节点
+    const realData = responseBody.data; 
+    if (!realData) {
+      throw new Error('后端返回的统一响应体中 data 为空');
+    }
+
+    // 提取真正的持仓数据和组合名称
+    const holdings = realData.holdings;
+    const name     = realData.portfolioName || code;
+
+    if (!Array.isArray(holdings) || !holdings.length) {
+      throw new Error('后端返回的 holdings 为空');
+    }
+
+    const p = {
+      id:       'p_' + Date.now(),
+      code:     code,   // 保存原始代码，用于去重判断
+      name:     name,
+      holdings: holdings,
+    };
+
+    portfolios.push(p);
+    savePortfolios();
+    panel.classList.remove('visible');
+    input.value = '';
+    renderList();
+    pollAll();
+    showToast(`「${name}」已添加 ✓`);
+
+  } catch (err) {
+    panel.classList.remove('visible');
+    console.error('[StockMix] 拉取组合配方失败:', err);
+    showToast(`加载失败：${err.message}`);
+  }
+}
+
+// 保留 closeAddPanel 供外部可能调用
+function closeAddPanel() {
+  document.getElementById('addPanel').classList.remove('visible');
+}
+
+function deletePortfolio(id) {
+  portfolios = portfolios.filter(p => p.id !== id);
+  savePortfolios();
+  renderList();
+  showToast('已删除');
+}
+
+function savePortfolios() {
+  localStorage.setItem('sm_portfolios', JSON.stringify(portfolios));
+}
+
+// ─── 搜索过滤（实时） ──────────────────────────
+document.getElementById('searchInput').addEventListener('input', function() {
+  const q = this.value.trim().toLowerCase();
+  document.querySelectorAll('.card').forEach(el => {
+    const name = el.querySelector('.card-name')?.textContent.toLowerCase() || '';
+    const desc = el.querySelector('.card-desc')?.textContent.toLowerCase() || '';
+    el.style.display = (!q || name.includes(q) || desc.includes(q)) ? '' : 'none';
+  });
+});
+
+// ─── 状态指示 ──────────────────────────────────
+function setStatus(state) {
+  const dot  = document.querySelector('.logo-dot');
+  const text = document.getElementById('statusText');
+  if (state === 'live')    { dot.style.background = 'var(--up)';   dot.style.boxShadow = '0 0 10px var(--up-glow)'; text.textContent = '实时'; }
+  if (state === 'error')   { dot.style.background = 'var(--down)'; dot.style.boxShadow = '0 0 10px var(--down-glow)'; text.textContent = '重试中'; }
+  if (state === 'loading') { dot.style.background = 'var(--flat)'; dot.style.boxShadow = 'none'; text.textContent = '更新中'; }
+}
+
+// ─── Toast ─────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ─── 启动 ──────────────────────────────────────
+function start() {
+  renderList();
+  pollAll();
+  pollTimer = setInterval(pollAll, 10000); // 每 10 秒轮询
+}
+
+start();
+</script>
+</body>
+</html>
