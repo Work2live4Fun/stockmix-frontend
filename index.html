@@ -450,6 +450,64 @@
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    /* ─── Auth UI ─── */
+    .auth-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      padding: 4px 10px;
+      border-radius: 20px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: opacity 0.15s, border-color 0.2s;
+      white-space: nowrap;
+      font-family: var(--font-mono);
+    }
+    .auth-badge:active { opacity: 0.75; }
+    .auth-badge.logged-in {
+      background: var(--up-dim);
+      border-color: rgba(0,229,160,0.2);
+      color: var(--up);
+    }
+    .auth-badge.logged-out {
+      background: var(--accent-dim);
+      border-color: rgba(124,106,245,0.25);
+      color: var(--accent);
+    }
+    .auth-badge .auth-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .auth-badge.logged-in  .auth-dot { background: var(--up); }
+    .auth-badge.logged-out .auth-dot { background: var(--accent); }
+
+    /* merge progress banner */
+    .merge-banner {
+      margin: 0 16px 14px;
+      padding: 12px 16px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(124,106,245,0.25);
+      border-radius: 12px;
+      font-size: 12px;
+      color: var(--accent);
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+    .merge-banner.visible { display: flex; }
+    .merge-spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(124,106,245,0.3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      flex-shrink: 0;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -462,9 +520,16 @@
         <span class="logo-dot"></span>
         StockMix
       </div>
-      <div class="global-status" id="globalStatus">
-        <span class="status-live">●</span>
-        <span id="statusText">实时</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="global-status" id="globalStatus">
+          <span class="status-live">●</span>
+          <span id="statusText">实时</span>
+        </div>
+        <!-- 登录状态徽章：点击可登录/退出 -->
+        <div class="auth-badge logged-out" id="authBadge" onclick="handleAuthClick()">
+          <span class="auth-dot"></span>
+          <span id="authLabel">登录</span>
+        </div>
       </div>
     </div>
     <div class="search-wrap">
@@ -487,6 +552,12 @@
       <div class="logo-dot" style="flex-shrink:0;animation:pulse-logo 1s infinite;"></div>
       <div style="font-size:13px;color:var(--muted);" id="addPanelMsg">正在从后端加载组合配方…</div>
     </div>
+  </div>
+
+  <!-- ─── 云端合并进度条 ─── -->
+  <div class="merge-banner" id="mergeBanner">
+    <div class="merge-spinner"></div>
+    <span id="mergeBannerMsg">正在将本地组合同步到云端…</span>
   </div>
 
   <!-- ─── Portfolio list ─── -->
@@ -523,6 +594,182 @@ const MOCK_PORTFOLIOS = [
     ]
   }
 ];
+
+// ╔══════════════════════════════════════════════════════╗
+// ║            Auth 模块 — Token 管理与鉴权               ║
+// ╚══════════════════════════════════════════════════════╝
+
+const AUTH = {
+  TOKEN_KEY: 'sm_token',
+  USER_KEY:  'sm_user',
+
+  /** 读取 token（null = 未登录） */
+  getToken() {
+    return localStorage.getItem(this.TOKEN_KEY) || null;
+  },
+
+  /** 保存登录信息 */
+  setSession(token, username) {
+    localStorage.setItem(this.TOKEN_KEY, token);
+    if (username) localStorage.setItem(this.USER_KEY, username);
+  },
+
+  /** 清除登录信息 */
+  clearSession() {
+    localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem(this.USER_KEY);
+  },
+
+  /** 是否已登录 */
+  isLoggedIn() {
+    return !!this.getToken();
+  },
+
+  /** 返回带鉴权的公共请求头 */
+  authHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${this.getToken()}`,
+    };
+  },
+
+  /** 获取显示用用户名 */
+  getUsername() {
+    return localStorage.getItem(this.USER_KEY) || '已登录';
+  },
+};
+
+// ─── 更新 Header 中的登录状态徽章 ──────────────────────
+function refreshAuthBadge() {
+  const badge = document.getElementById('authBadge');
+  const label = document.getElementById('authLabel');
+  if (AUTH.isLoggedIn()) {
+    badge.className = 'auth-badge logged-in';
+    label.textContent = AUTH.getUsername() + ' · 退出';
+  } else {
+    badge.className = 'auth-badge logged-out';
+    label.textContent = '登录';
+  }
+}
+
+// ─── 点击登录/退出 ──────────────────────────────────────
+function handleAuthClick() {
+  if (AUTH.isLoggedIn()) {
+    // 退出：清除 token，切回本地模式
+    AUTH.clearSession();
+    refreshAuthBadge();
+    showToast('已退出登录，切换到本地模式');
+  } else {
+    // 此处接入你的登录流程。
+    // 示例：弹出 prompt 输入 token（生产环境替换为跳转登录页或弹窗）
+    const token = prompt('请输入 Token（由后端登录接口颁发）：');
+    if (!token || !token.trim()) return;
+    const username = prompt('请输入用户名（选填，仅用于显示）：') || '用户';
+    AUTH.setSession(token.trim(), username.trim());
+    refreshAuthBadge();
+    showToast(`欢迎，${username}！正在同步本地数据…`);
+    // 登录后立即触发一次本地→云端合并
+    mergeLocalToServer();
+  }
+}
+
+// ╔══════════════════════════════════════════════════════╗
+// ║          云端合并：本地组合 → POST /merge             ║
+// ╚══════════════════════════════════════════════════════╝
+
+// 接口约定：POST /api/v1/user/portfolio/merge
+// 请求体：{ "codes": ["code-a", "code-b", ...] }
+// 成功后端将这些代码与当前账号绑定；前端随后清空本地缓存，
+// 再从后端重新拉取该账号下的全量组合列表。
+async function mergeLocalToServer() {
+  if (!AUTH.isLoggedIn()) return;
+
+  // 收集本地所有组合的 code 字段（排除纯 Mock 演示数据）
+  const localCodes = portfolios
+    .filter(p => p.code)          // Mock 数据没有 .code 字段，跳过
+    .map(p => p.code);
+
+  const banner    = document.getElementById('mergeBanner');
+  const bannerMsg = document.getElementById('mergeBannerMsg');
+
+  if (!localCodes.length) {
+    // 没有需要合并的本地数据，直接拉取云端列表
+    await fetchServerPortfolios();
+    return;
+  }
+
+  // 显示进度条
+  bannerMsg.textContent = `正在将 ${localCodes.length} 个本地组合同步到云端…`;
+  banner.classList.add('visible');
+
+  try {
+    const res = await fetch(`${API_BASE_USER}/portfolio/merge`, {
+      method:  'POST',
+      headers: AUTH.authHeaders(),
+      body:    JSON.stringify({ codes: localCodes }),
+    });
+
+    if (res.status === 401) { handleTokenExpired(); return; }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    // 合并成功：清空本地缓存，切换为纯云端模式
+    localStorage.removeItem('sm_portfolios');
+    portfolios = [];
+    showToast(`已同步 ${localCodes.length} 个组合到云端 ✓`);
+
+    // 拉取云端最新列表
+    await fetchServerPortfolios();
+
+  } catch (err) {
+    console.error('[StockMix] 云端合并失败:', err);
+    showToast(`同步失败：${err.message}，继续使用本地数据`);
+  } finally {
+    banner.classList.remove('visible');
+  }
+}
+
+// ─── 从后端拉取该账号下的全量组合列表 ───────────────────
+// 接口约定：GET /api/v1/user/portfolio/list
+// 返回：{ data: [ { id, code, portfolioName, holdings:[...] }, ... ] }
+async function fetchServerPortfolios() {
+  if (!AUTH.isLoggedIn()) return;
+
+  try {
+    const res = await fetch(`${API_BASE_USER}/portfolio/list`, {
+      method:  'GET',
+      headers: AUTH.authHeaders(),
+    });
+
+    if (res.status === 401) { handleTokenExpired(); return; }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const body = await res.json();
+    const list = body.data || body; // 兼容直接返回数组
+
+    if (Array.isArray(list)) {
+      // 将云端数据规范化为前端通用格式
+      portfolios = list.map(item => ({
+        id:       item.id || ('srv_' + Date.now() + Math.random()),
+        code:     item.code || '',
+        name:     item.portfolioName || item.name || item.code,
+        holdings: item.holdings || [],
+      }));
+      renderList();
+      pollAll();
+    }
+  } catch (err) {
+    console.error('[StockMix] 拉取云端组合失败:', err);
+    showToast(`云端列表加载失败：${err.message}`);
+  }
+}
+
+// ─── Token 过期统一处理 ────────────────────────────────
+function handleTokenExpired() {
+  AUTH.clearSession();
+  refreshAuthBadge();
+  showToast('登录已过期，请重新登录');
+  console.warn('[StockMix] Token 已失效，已自动退出');
+}
 
 // ─── 状态 ────────────────────────────────────────
 let portfolios = JSON.parse(localStorage.getItem('sm_portfolios') || 'null') || MOCK_PORTFOLIOS;
@@ -745,41 +992,93 @@ function renderList() {
 }
 
 // ─── 后端接口地址 ───────────────────────────────
-const API_BASE = 'http://localhost:8080/api/v1/portfolio';
+const API_BASE      = 'http://localhost:8080/api/v1/portfolio';       // 公开接口（无需登录）
+const API_BASE_USER = 'http://localhost:8080/api/v1/user';            // 用户态接口（需 Bearer Token）
 
-// ─── 从后端拉取组合配方并添加 ─────────────────────
-// 接口：GET /api/v1/portfolio/recipe?code=xxx
-// 期望后端返回结构：
-// {
-//   "name": "白酒科技混合",
-//   "holdings": [
-//     { "stockCode": "sh600519", "stockName": "贵州茅台", "weight": 0.0985 },
-//     ...
-//   ]
-// }
+// ─── 从后端拉取组合配方并添加（双模态） ──────────────
+//
+//  【未登录】→ GET  /api/v1/portfolio/recipe?code=xxx
+//              holdings 存入 localStorage（本地模式）
+//
+//  【已登录】→ POST /api/v1/user/portfolio/add  + Bearer Token
+//              body: { "code": "xxx" }
+//              后端自行关联账号，前端再刷新云端列表
+//
 async function fetchAndAdd() {
   const input = document.getElementById('searchInput');
   const code  = input.value.trim();
   if (!code) { showToast('请输入组合代码'); return; }
 
-  // 检查是否已存在
+  // 去重判断
   if (portfolios.some(p => p.code === code)) {
     showToast('该组合已添加');
     return;
   }
 
-  // 显示加载面板
   const panel   = document.getElementById('addPanel');
   const msgEl   = document.getElementById('addPanelMsg');
+
+  // ── 已登录：走云端添加路径 ─────────────────────────
+  if (AUTH.isLoggedIn()) {
+    msgEl.textContent = `正在添加「${code}」到云端…`;
+    panel.classList.add('visible');
+
+    try {
+      // Step 1：通知后端绑定该组合到当前账号
+      const addRes = await fetch(`${API_BASE_USER}/portfolio/add`, {
+        method:  'POST',
+        headers: AUTH.authHeaders(),
+        body:    JSON.stringify({ code }),
+      });
+
+      if (addRes.status === 401) { handleTokenExpired(); return; }
+      if (!addRes.ok) {
+        const errText = await addRes.text().catch(() => addRes.statusText);
+        throw new Error(`HTTP ${addRes.status}：${errText}`);
+      }
+
+      const addBody = await addRes.json();
+      // 兼容后端直接返回单个组合对象，或 { data: {...} } 包装
+      const newItem = addBody.data || addBody;
+
+      if (newItem && newItem.holdings) {
+        // 后端直接返回了完整组合，追加到本地渲染列表
+        const p = {
+          id:       newItem.id || ('srv_' + Date.now()),
+          code:     code,
+          name:     newItem.portfolioName || newItem.name || code,
+          holdings: newItem.holdings,
+        };
+        portfolios.push(p);
+        renderList();
+        pollAll();
+        showToast(`「${p.name}」已添加到云端 ✓`);
+      } else {
+        // 后端未返回详情，刷新全量列表兜底
+        await fetchServerPortfolios();
+        showToast(`「${code}」已添加 ✓`);
+      }
+
+      input.value = '';
+
+    } catch (err) {
+      console.error('[StockMix] 云端添加失败:', err);
+      showToast(`添加失败：${err.message}`);
+    } finally {
+      panel.classList.remove('visible');
+    }
+
+    return; // 已登录路径到此结束
+  }
+
+  // ── 未登录：走本地路径（拉取 recipe → 存 localStorage）──
   msgEl.textContent = `正在加载「${code}」的配方…`;
   panel.classList.add('visible');
 
   try {
     const res = await fetch(`${API_BASE}/recipe?code=${encodeURIComponent(code)}`, {
-      method: 'GET',
+      method:  'GET',
       headers: { 'Content-Type': 'application/json' },
-      // 如后端需要鉴权 token，在此追加：
-      // headers: { 'Authorization': 'Bearer ' + getToken() },
     });
 
     if (!res.ok) {
@@ -787,15 +1086,12 @@ async function fetchAndAdd() {
       throw new Error(`HTTP ${res.status}：${errText}`);
     }
 
-    const responseBody = await res.json(); // 最外层的标准统一响应体
+    const responseBody = await res.json();
 
-    // 🌟 核心修复：先取出后端 ApiResponse 里面的 data 节点
-    const realData = responseBody.data; 
-    if (!realData) {
-      throw new Error('后端返回的统一响应体中 data 为空');
-    }
+    // 兼容 { data: { portfolioName, holdings } } 或直接 { portfolioName, holdings }
+    const realData = responseBody.data || responseBody;
+    if (!realData) throw new Error('后端返回的响应体 data 为空');
 
-    // 提取真正的持仓数据和组合名称
     const holdings = realData.holdings;
     const name     = realData.portfolioName || code;
 
@@ -805,23 +1101,23 @@ async function fetchAndAdd() {
 
     const p = {
       id:       'p_' + Date.now(),
-      code:     code,   // 保存原始代码，用于去重判断
+      code:     code,
       name:     name,
       holdings: holdings,
     };
 
     portfolios.push(p);
-    savePortfolios();
-    panel.classList.remove('visible');
+    savePortfolios();          // 本地模式才写 localStorage
     input.value = '';
     renderList();
     pollAll();
-    showToast(`「${name}」已添加 ✓`);
+    showToast(`「${name}」已添加（本地）✓`);
 
   } catch (err) {
-    panel.classList.remove('visible');
     console.error('[StockMix] 拉取组合配方失败:', err);
     showToast(`加载失败：${err.message}`);
+  } finally {
+    panel.classList.remove('visible');
   }
 }
 
@@ -830,11 +1126,29 @@ function closeAddPanel() {
   document.getElementById('addPanel').classList.remove('visible');
 }
 
-function deletePortfolio(id) {
+// ─── 删除组合（双模态） ────────────────────────────
+// 【已登录】→ DELETE /api/v1/user/portfolio/{id}  同步到云端
+// 【未登录】→ 仅操作本地 localStorage
+async function deletePortfolio(id) {
+  // 先乐观更新 UI
   portfolios = portfolios.filter(p => p.id !== id);
   savePortfolios();
   renderList();
   showToast('已删除');
+
+  // 已登录则同步通知后端
+  if (AUTH.isLoggedIn()) {
+    try {
+      const res = await fetch(`${API_BASE_USER}/portfolio/${encodeURIComponent(id)}`, {
+        method:  'DELETE',
+        headers: AUTH.authHeaders(),
+      });
+      if (res.status === 401) { handleTokenExpired(); return; }
+      if (!res.ok) console.warn(`[StockMix] 云端删除失败 HTTP ${res.status}`);
+    } catch (err) {
+      console.error('[StockMix] 云端删除请求异常:', err);
+    }
+  }
 }
 
 function savePortfolios() {
@@ -871,10 +1185,22 @@ function showToast(msg) {
 }
 
 // ─── 启动 ──────────────────────────────────────
-function start() {
-  renderList();
-  pollAll();
-  pollTimer = setInterval(pollAll, 10000); // 每 10 秒轮询
+async function start() {
+  // 1. 先刷新登录状态徽章
+  refreshAuthBadge();
+
+  if (AUTH.isLoggedIn()) {
+    // 2a. 已登录：先合并本地缓存到云端，再从云端拉取全量列表
+    //     mergeLocalToServer 内部会调用 fetchServerPortfolios → renderList → pollAll
+    await mergeLocalToServer();
+  } else {
+    // 2b. 未登录：直接渲染本地数据并开始轮询
+    renderList();
+    pollAll();
+  }
+
+  // 3. 启动行情定时轮询（无论登录与否，行情刷新逻辑不变）
+  pollTimer = setInterval(pollAll, 10000);
 }
 
 start();
